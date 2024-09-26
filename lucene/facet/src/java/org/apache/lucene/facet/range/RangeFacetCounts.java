@@ -31,10 +31,10 @@ import org.apache.lucene.search.Query;
  */
 abstract class RangeFacetCounts extends Facets {
   /** Ranges passed to constructor. */
-  protected final Range[] ranges;
+  protected Range[] ranges;
 
   /** Counts, initialized in by subclass. */
-  protected final int[] counts;
+  protected int[] counts;
 
   /**
    * Optional: if specified, we first test this Query to see whether the document should be checked

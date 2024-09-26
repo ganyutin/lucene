@@ -75,8 +75,26 @@ public class LongRangeFacetCounts extends RangeFacetCounts {
     count(valueSource, hits.getMatchingDocs());
   }
 
-  private void count(LongValuesSource valueSource, List<MatchingDocs> matchingDocs)
-      throws IOException {
+  /**
+   * Create {@code LongRangeFacetCounts} using long values from the specified field. The field may
+   * be single-valued ({NumericDocValues}) or multi-valued ({SortedNumericDocValues}),
+   * and will be interpreted as containing long values.
+   */
+  protected LongRangeFacetCounts(
+          String field,
+          Query fastMatchQuery)
+          throws IOException {
+    super(field, new LongRange[1], fastMatchQuery);
+  }
+
+  /**
+   * Counts from the provided valueSource.
+   *
+   * <p>TODO: Seems like we could extract this into RangeFacetCounts and make the logic common
+   * between this class and DoubleRangeFacetCounts somehow. The blocker right now is that this
+   * implementation expects LongValueSource and DoubleRangeFacetCounts expects DoubleValueSource.
+   */
+  protected void count(LongValuesSource valueSource, List<MatchingDocs> matchingDocs) throws IOException {
 
     LongRange[] ranges = (LongRange[]) this.ranges;
 

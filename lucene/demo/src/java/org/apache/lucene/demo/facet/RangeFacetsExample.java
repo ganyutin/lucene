@@ -18,10 +18,10 @@ package org.apache.lucene.demo.facet;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.Random;
+
 import org.apache.lucene.analysis.core.WhitespaceAnalyzer;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.document.LongPoint;
-import org.apache.lucene.document.NumericDocValuesField;
+import org.apache.lucene.document.*;
 import org.apache.lucene.facet.DrillDownQuery;
 import org.apache.lucene.facet.DrillSideways;
 import org.apache.lucene.facet.FacetResult;
@@ -30,6 +30,7 @@ import org.apache.lucene.facet.FacetsCollector;
 import org.apache.lucene.facet.FacetsConfig;
 import org.apache.lucene.facet.range.LongRange;
 import org.apache.lucene.facet.range.LongRangeFacetCounts;
+import org.apache.lucene.facet.range.DynamicLongRangeFacetCounts;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
@@ -39,6 +40,8 @@ import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.store.ByteBuffersDirectory;
 import org.apache.lucene.store.Directory;
+
+import static java.lang.Math.abs;
 
 /** Shows simple usage of dynamic range faceting. */
 public class RangeFacetsExample implements Closeable {
@@ -61,15 +64,19 @@ public class RangeFacetsExample implements Closeable {
         new IndexWriter(
             indexDir, new IndexWriterConfig(new WhitespaceAnalyzer()).setOpenMode(OpenMode.CREATE));
 
+    Random random = new Random();
     // Add documents with a fake timestamp, 1000 sec before
     // "now", 2000 sec before "now", ...:
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < 10000; i++) {
       Document doc = new Document();
-      long then = nowSec - i * 1000;
-      // Add as doc values field, so we can compute range facets:
-      doc.add(new NumericDocValuesField("timestamp", then));
+      long then = nowSec - random.nextInt();
+      // Add as doc values field, so we can compute range facets: Proffer?
+      doc.add(new NumericDocValuesField("price", then));
       // Add as numeric field so we can drill-down:
-      doc.add(new LongPoint("timestamp", then));
+      doc.add(new LongPoint("price", then));
+      // temporarily using string to store prices, price stored in long or string?
+//      doc.add(new StringField("price", String.valueOf(then), Field.Store.YES));
+      doc.add(new StringField("price", String.valueOf(then), Field.Store.YES));
       indexWriter.addDocument(doc);
     }
 
@@ -83,6 +90,21 @@ public class RangeFacetsExample implements Closeable {
   }
 
   /** User runs a query and counts facets. */
+  public FacetResult searchDyn() throws IOException {
+
+    // Aggregates the facet counts
+    FacetsCollector fc = new FacetsCollector();
+
+    // MatchAllDocsQuery is for "browsing" (counts facets
+    // for all non-deleted docs in the index); normally
+    // you'd use a "normal" query:
+    FacetsCollector.search(searcher, new MatchAllDocsQuery(), 10, fc);
+
+    Facets facets = new DynamicLongRangeFacetCounts("price", fc, searcher, new MatchAllDocsQuery());
+    return facets.getTopChildren(10, "price");
+  }
+
+  /** User runs a query and counts facets. */
   public FacetResult search() throws IOException {
 
     // Aggregates the facet counts
@@ -93,8 +115,8 @@ public class RangeFacetsExample implements Closeable {
     // you'd use a "normal" query:
     FacetsCollector.search(searcher, new MatchAllDocsQuery(), 10, fc);
 
-    Facets facets = new LongRangeFacetCounts("timestamp", fc, PAST_HOUR, PAST_SIX_HOURS, PAST_DAY);
-    return facets.getTopChildren(10, "timestamp");
+    Facets facets = new LongRangeFacetCounts("price", fc, PAST_HOUR, PAST_SIX_HOURS, PAST_DAY);
+    return facets.getTopChildren(10, "price");
   }
 
   /** User drills down on the specified range. */
@@ -150,20 +172,20 @@ public class RangeFacetsExample implements Closeable {
 
     System.out.println("Facet counting example:");
     System.out.println("-----------------------");
-    System.out.println(example.search());
+    System.out.println(example.searchDyn());
 
-    System.out.println("\n");
-    System.out.println("Facet drill-down example (timestamp/Past six hours):");
-    System.out.println("---------------------------------------------");
-    TopDocs hits = example.drillDown(example.PAST_SIX_HOURS);
-    System.out.println(hits.totalHits + " totalHits");
-
-    System.out.println("\n");
-    System.out.println("Facet drill-sideways example (timestamp/Past six hours):");
-    System.out.println("---------------------------------------------");
-    DrillSideways.DrillSidewaysResult sideways = example.drillSideways(example.PAST_SIX_HOURS);
-    System.out.println(sideways.hits.totalHits + " totalHits");
-    System.out.println(sideways.facets.getTopChildren(10, "timestamp"));
+//    System.out.println("\n");
+//    System.out.println("Facet drill-down example (timestamp/Past six hours):");
+//    System.out.println("---------------------------------------------");
+//    TopDocs hits = example.drillDown(example.PAST_SIX_HOURS);
+//    System.out.println(hits.totalHits + " totalHits");
+//
+//    System.out.println("\n");
+//    System.out.println("Facet drill-sideways example (timestamp/Past six hours):");
+//    System.out.println("---------------------------------------------");
+//    DrillSideways.DrillSidewaysResult sideways = example.drillSideways(example.PAST_SIX_HOURS);
+//    System.out.println(sideways.hits.totalHits + " totalHits");
+//    System.out.println(sideways.facets.getTopChildren(10, "timestamp"));
 
     example.close();
   }
